@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kids Savings Goal Tracker</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #16a34a;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px 16px;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.6rem;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: 2fr 1fr auto;
+      gap: 10px;
+    }
+
+    @media (max-width: 600px) {
+      form {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    input {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: var(--primary-hover);
+    }
+
+    button.secondary {
+      background: #e2e8f0;
+      color: var(--text);
+    }
+
+    button.secondary:hover {
+      background: #cbd5e1;
+    }
+
+    button.danger {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .goal-item {
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+      margin-top: 14px;
+    }
+
+    .goal-item:first-child {
+      border-top: none;
+      padding-top: 0;
+      margin-top: 0;
+    }
+
+    .goal-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .goal-title {
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .goal-stats {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 12px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--success);
+      width: 0%;
+      transition: width 0.25s ease;
+    }
+
+    .goal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Kids Savings Goal Tracker</h1>
+      <p class="subtitle">Simple, open-source goal tracker to help kids build healthy saving habits.</p>
+    </header>
+
+    <section class="card">
+      <form id="goal-form">
+        <input type="text" id="goal-name" placeholder="Goal name (e.g. New Bicycle)" required />
+        <input type="number" id="goal-target" placeholder="Target ($)" min="1" step="0.01" required />
+        <button type="submit">Add Goal</button>
+      </form>
+    </section>
+
+    <section class="card" id="goals-list"></section>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "wonderdokkan_kids_savings_goals_v1";
+
+    const defaultGoals = [
+      { id: crypto.randomUUID(), name: "Zara's Money Journey Book", target: 25, saved: 15 },
+      { id: crypto.randomUUID(), name: "Art & Routine Kit", target: 40, saved: 10 }
+    ];
+
+    let goals = loadGoals();
+
+    function loadGoals() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultGoals));
+          return [...defaultGoals];
+        }
+        return JSON.parse(raw);
+      } catch {
+        return [...defaultGoals];
+      }
+    }
+
+    function saveGoals() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+    }
+
+    function addDeposit(id, amount) {
+      goals = goals.map((g) => {
+        if (g.id !== id) return g;
+        const nextSaved = Math.min(g.target, Number((g.saved + amount).toFixed(2)));
+        return { ...g, saved: nextSaved };
+      });
+      saveGoals();
+      render();
+    }
+
+    function deleteGoal(id) {
+      goals = goals.filter((g) => g.id !== id);
+      saveGoals();
+      render();
+    }
+
+    function render() {
+      const container = document.getElementById("goals-list");
+      if (!goals.length) {
+        container.innerHTML = "<p class='subtitle'>No savings goals yet. Add one above to get started.</p>";
+        return;
+      }
+
+      container.innerHTML = goals
+        .map((g) => {
+          const pct = Math.min(100, Math.round((g.saved / g.target) * 100));
+          const remaining = Math.max(0, (g.target - g.saved).toFixed(2));
+          return `
+            <div class="goal-item">
+              <div class="goal-top">
+                <span class="goal-title">${escapeHtml(g.name)}</span>
+                <strong>${pct}%</strong>
+              </div>
+              <div class="goal-stats">
+                Saved: $${g.saved.toFixed(2)} / $${g.target.toFixed(2)} (Remaining: $${remaining})
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: ${pct}%"></div>
+              </div>
+              <div class="goal-actions">
+                <button type="button" onclick="addDeposit('${g.id}', 1)">+$1</button>
+                <button type="button" onclick="addDeposit('${g.id}', 5)">+$5</button>
+                <button type="button" class="secondary" onclick="addDeposit('${g.id}', 10)">+$10</button>
+                <button type="button" class="danger" onclick="deleteGoal('${g.id}')">Remove</button>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    document.getElementById("goal-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const nameInput = document.getElementById("goal-name");
+      const targetInput = document.getElementById("goal-target");
+      const name = nameInput.value.trim();
+      const target = parseFloat(targetInput.value);
+
+      if (!name || isNaN(target) || target <= 0) return;
+
+      goals.unshift({
+        id: crypto.randomUUID(),
+        name,
+        target: Number(target.toFixed(2)),
+        saved: 0
+      });
+
+      saveGoals();
+      render();
+      nameInput.value = "";
+      targetInput.value = "";
+    });
+
+    render();
+  </script>
+</body>
+</html>
